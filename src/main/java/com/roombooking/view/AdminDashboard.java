@@ -6,8 +6,14 @@ import com.roombooking.controller.RoomController;
 import com.roombooking.model.Reservation;
 import com.roombooking.model.Room;
 import com.roombooking.model.User;
+import com.roombooking.util.ThemeManager;
+import com.roombooking.view.components.DashboardPanel;
+import com.roombooking.view.components.StatCard;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -16,16 +22,11 @@ import java.util.List;
 /**
  * Dashboard for administrators
  */
-public class AdminDashboard extends JPanel {
-    private static final Color PRIMARY_COLOR = new Color(41, 128, 185);
-    private static final Font HEADING_FONT = new Font("Segoe UI", Font.BOLD, 20);
-    private static final Font LABEL_FONT = new Font("Segoe UI", Font.PLAIN, 14);
-    
-    private final User adminUser;
+public class AdminDashboard extends DashboardPanel {
     private final ReservationController reservationController;
     private final RoomController roomController;
     private final AuthController authController;
-    private JTabbedPane tabbedPane;
+    
     private JTable reservationsTable;
     private JTable roomsTable;
     private JTable usersTable;
@@ -33,72 +34,132 @@ public class AdminDashboard extends JPanel {
     private DefaultTableModel roomsModel;
     private DefaultTableModel usersModel;
     private Timer refreshTimer;
-    private JLabel statusLabel;
+    
+    // Dashboard stats
+    private StatCard totalRoomsCard;
+    private StatCard activeReservationsCard;
+    private StatCard totalUsersCard;
     
     public AdminDashboard(User admin) {
-        this.adminUser = admin;
+        super(admin);
+        
         this.reservationController = new ReservationController();
         this.roomController = new RoomController();
         this.authController = new AuthController();
-        initializeComponents();
+        
+        setupNavigation();
+        createDashboardPanel();
+        createReservationsPanel();
+        createRoomsPanel();
+        createUsersPanel();
+        
+        // Show dashboard panel initially
+        showContentPanel("dashboard");
+        
+        // Set up automatic refresh
         setupRefreshTimer();
-    }
-    
-    private void initializeComponents() {
-        setLayout(new BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        // Header
-        JPanel headerPanel = createHeaderPanel();
-        add(headerPanel, BorderLayout.NORTH);
-        
-        // Tabbed Pane
-        tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(LABEL_FONT);
-        
-        // Reservations Tab
-        JPanel reservationsPanel = createReservationsPanel();
-        tabbedPane.addTab("Reservations", reservationsPanel);
-        
-        // Rooms Tab
-        JPanel roomsPanel = createRoomsPanel();
-        tabbedPane.addTab("Rooms", roomsPanel);
-        
-        // Users Tab
-        JPanel usersPanel = createUsersPanel();
-        tabbedPane.addTab("Users", usersPanel);
-        
-        add(tabbedPane, BorderLayout.CENTER);
-        
-        // Status Bar
-        statusLabel = new JLabel("Ready");
-        statusLabel.setFont(LABEL_FONT);
-        add(statusLabel, BorderLayout.SOUTH);
-        
+        // Initial data load
         refreshData();
     }
     
-    private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-        
-        JLabel welcomeLabel = new JLabel("Admin Dashboard - " + adminUser.getFullName());
-        welcomeLabel.setFont(HEADING_FONT);
-        headerPanel.add(welcomeLabel, BorderLayout.WEST);
-        
-        JButton logoutButton = new JButton("Logout");
-        logoutButton.setFont(LABEL_FONT);
-        logoutButton.addActionListener(e -> handleLogout());
-        headerPanel.add(logoutButton, BorderLayout.EAST);
-        
-        return headerPanel;
+    private void setupNavigation() {
+        addNavigationItem("Dashboard", "dashboard.png", "dashboard");
+        addNavigationItem("Reservations", "calendar.png", "reservations");
+        addNavigationItem("Rooms", "room.png", "rooms");
+        addNavigationItem("Users", "users.png", "users");
+        addNavigationItem("Reports", "chart.png", "reports");
     }
     
-    private JPanel createReservationsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+    private void createDashboardPanel() {
+        JPanel dashboardPanel = new JPanel();
+        dashboardPanel.setLayout(new BorderLayout(15, 15));
+        dashboardPanel.setOpaque(false);
         
-        // Create table model
+        // Welcome message
+        JPanel welcomePanel = new JPanel(new BorderLayout());
+        welcomePanel.setOpaque(false);
+        welcomePanel.setBorder(new EmptyBorder(0, 0, 20, 0));
+        
+        JLabel welcomeLabel = ThemeManager.createHeaderLabel("Admin Dashboard");
+        welcomePanel.add(welcomeLabel, BorderLayout.WEST);
+        
+        dashboardPanel.add(welcomePanel, BorderLayout.NORTH);
+        
+        // Stats cards
+        JPanel statsPanel = new JPanel(new GridLayout(1, 3, 15, 0));
+        statsPanel.setOpaque(false);
+        
+        totalRoomsCard = new StatCard("Total Rooms", "0", "room.png");
+        activeReservationsCard = new StatCard("Active Reservations", "0", "calendar.png");
+        activeReservationsCard.setAccentColor(ThemeManager.SUCCESS_COLOR);
+        totalUsersCard = new StatCard("Registered Users", "0", "users.png");
+        totalUsersCard.setAccentColor(ThemeManager.ACCENT_COLOR);
+        
+        statsPanel.add(totalRoomsCard);
+        statsPanel.add(activeReservationsCard);
+        statsPanel.add(totalUsersCard);
+        
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 15));
+        centerPanel.setOpaque(false);
+        centerPanel.add(statsPanel, BorderLayout.NORTH);
+        
+        // Recent reservations
+        JPanel recentPanel = ThemeManager.createCardPanel();
+        recentPanel.setLayout(new BorderLayout());
+        
+        JLabel recentLabel = new JLabel("Recent Reservations");
+        recentLabel.setFont(ThemeManager.SUBHEADING_FONT);
+        recentLabel.setBorder(new EmptyBorder(0, 0, 10, 0));
+        recentPanel.add(recentLabel, BorderLayout.NORTH);
+        
+        // Table for recent reservations
+        String[] columns = {"ID", "User", "Room", "Start Time", "End Time", "Status"};
+        DefaultTableModel recentModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable recentTable = new JTable(recentModel);
+        recentTable.setRowHeight(30);
+        recentTable.getTableHeader().setFont(ThemeManager.LABEL_FONT);
+        JScrollPane scrollPane = new JScrollPane(recentTable);
+        recentPanel.add(scrollPane, BorderLayout.CENTER);
+        
+        centerPanel.add(recentPanel, BorderLayout.CENTER);
+        dashboardPanel.add(centerPanel, BorderLayout.CENTER);
+        
+        // Add dashboard to content panel
+        addContentPanel(dashboardPanel, "dashboard");
+    }
+    
+    private void createReservationsPanel() {
+        JPanel reservationsPanel = new JPanel(new BorderLayout(0, 15));
+        reservationsPanel.setOpaque(false);
+        
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        
+        JLabel titleLabel = ThemeManager.createHeaderLabel("Reservations");
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        
+        // Search field
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        searchPanel.setOpaque(false);
+        JTextField searchField = new JTextField(20);
+        searchField.setPreferredSize(new Dimension(200, 30));
+        JButton searchButton = ThemeManager.createSecondaryButton("Search");
+        searchPanel.add(new JLabel("Search: "));
+        searchPanel.add(searchField);
+        searchPanel.add(searchButton);
+        headerPanel.add(searchPanel, BorderLayout.EAST);
+        
+        reservationsPanel.add(headerPanel, BorderLayout.NORTH);
+        
+        // Reservations table
         String[] columns = {"ID", "User", "Room", "Start Time", "End Time", "Status", "Subject"};
         reservationsModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -108,29 +169,74 @@ public class AdminDashboard extends JPanel {
         };
         
         reservationsTable = new JTable(reservationsModel);
+        reservationsTable.setRowHeight(30);
+        reservationsTable.getTableHeader().setFont(ThemeManager.LABEL_FONT);
+        
+        // Add sorting capability
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(reservationsModel);
+        reservationsTable.setRowSorter(sorter);
+        
         JScrollPane scrollPane = new JScrollPane(reservationsTable);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        JPanel tablePanel = ThemeManager.createCardPanel();
+        tablePanel.setLayout(new BorderLayout());
+        tablePanel.add(scrollPane, BorderLayout.CENTER);
+        
+        reservationsPanel.add(tablePanel, BorderLayout.CENTER);
         
         // Buttons panel
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton viewButton = new JButton("View Details");
-        JButton cancelButton = new JButton("Cancel Reservation");
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        buttonsPanel.setOpaque(false);
+        
+        JButton viewButton = ThemeManager.createPrimaryButton("View Details");
+        JButton cancelButton = ThemeManager.createDangerButton("Cancel Reservation");
         
         viewButton.addActionListener(e -> handleViewReservation());
         cancelButton.addActionListener(e -> handleCancelReservation());
         
         buttonsPanel.add(viewButton);
         buttonsPanel.add(cancelButton);
-        panel.add(buttonsPanel, BorderLayout.SOUTH);
         
-        return panel;
+        reservationsPanel.add(buttonsPanel, BorderLayout.SOUTH);
+        
+        // Add to content panel
+        addContentPanel(reservationsPanel, "reservations");
+        
+        // Add search functionality
+        searchButton.addActionListener(e -> {
+            String searchText = searchField.getText().toLowerCase();
+            if (searchText.isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+            }
+        });
     }
     
-    private JPanel createRoomsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+    private void createRoomsPanel() {
+        JPanel roomsPanel = new JPanel(new BorderLayout(0, 15));
+        roomsPanel.setOpaque(false);
         
-        // Create table model
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        
+        JLabel titleLabel = ThemeManager.createHeaderLabel("Rooms");
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        
+        // Search field
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        searchPanel.setOpaque(false);
+        JTextField searchField = new JTextField(20);
+        searchField.setPreferredSize(new Dimension(200, 30));
+        JButton searchButton = ThemeManager.createSecondaryButton("Search");
+        searchPanel.add(new JLabel("Search: "));
+        searchPanel.add(searchField);
+        searchPanel.add(searchButton);
+        headerPanel.add(searchPanel, BorderLayout.EAST);
+        
+        roomsPanel.add(headerPanel, BorderLayout.NORTH);
+        
+        // Rooms table
         String[] columns = {"ID", "Name", "Type", "Location", "Capacity", "Description", "Active"};
         roomsModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -140,14 +246,27 @@ public class AdminDashboard extends JPanel {
         };
         
         roomsTable = new JTable(roomsModel);
+        roomsTable.setRowHeight(30);
+        roomsTable.getTableHeader().setFont(ThemeManager.LABEL_FONT);
+        
+        // Add sorting capability
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(roomsModel);
+        roomsTable.setRowSorter(sorter);
+        
         JScrollPane scrollPane = new JScrollPane(roomsTable);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        JPanel tablePanel = ThemeManager.createCardPanel();
+        tablePanel.setLayout(new BorderLayout());
+        tablePanel.add(scrollPane, BorderLayout.CENTER);
+        
+        roomsPanel.add(tablePanel, BorderLayout.CENTER);
         
         // Buttons panel
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton addButton = new JButton("Add Room");
-        JButton editButton = new JButton("Edit Room");
-        JButton deleteButton = new JButton("Delete Room");
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        buttonsPanel.setOpaque(false);
+        
+        JButton addButton = ThemeManager.createPrimaryButton("Add Room");
+        JButton editButton = ThemeManager.createSecondaryButton("Edit Room");
+        JButton deleteButton = ThemeManager.createDangerButton("Delete Room");
         
         addButton.addActionListener(e -> handleAddRoom());
         editButton.addActionListener(e -> handleEditRoom());
@@ -156,16 +275,48 @@ public class AdminDashboard extends JPanel {
         buttonsPanel.add(addButton);
         buttonsPanel.add(editButton);
         buttonsPanel.add(deleteButton);
-        panel.add(buttonsPanel, BorderLayout.SOUTH);
         
-        return panel;
+        roomsPanel.add(buttonsPanel, BorderLayout.SOUTH);
+        
+        // Add to content panel
+        addContentPanel(roomsPanel, "rooms");
+        
+        // Add search functionality
+        searchButton.addActionListener(e -> {
+            String searchText = searchField.getText().toLowerCase();
+            if (searchText.isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+            }
+        });
     }
     
-    private JPanel createUsersPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+    private void createUsersPanel() {
+        JPanel usersPanel = new JPanel(new BorderLayout(0, 15));
+        usersPanel.setOpaque(false);
         
-        // Create table model
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        
+        JLabel titleLabel = ThemeManager.createHeaderLabel("Users");
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        
+        // Search field
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        searchPanel.setOpaque(false);
+        JTextField searchField = new JTextField(20);
+        searchField.setPreferredSize(new Dimension(200, 30));
+        JButton searchButton = ThemeManager.createSecondaryButton("Search");
+        searchPanel.add(new JLabel("Search: "));
+        searchPanel.add(searchField);
+        searchPanel.add(searchButton);
+        headerPanel.add(searchPanel, BorderLayout.EAST);
+        
+        usersPanel.add(headerPanel, BorderLayout.NORTH);
+        
+        // Users table
         String[] columns = {"ID", "Username", "Full Name", "Email", "Admin", "Active"};
         usersModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -175,14 +326,27 @@ public class AdminDashboard extends JPanel {
         };
         
         usersTable = new JTable(usersModel);
+        usersTable.setRowHeight(30);
+        usersTable.getTableHeader().setFont(ThemeManager.LABEL_FONT);
+        
+        // Add sorting capability
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(usersModel);
+        usersTable.setRowSorter(sorter);
+        
         JScrollPane scrollPane = new JScrollPane(usersTable);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        JPanel tablePanel = ThemeManager.createCardPanel();
+        tablePanel.setLayout(new BorderLayout());
+        tablePanel.add(scrollPane, BorderLayout.CENTER);
+        
+        usersPanel.add(tablePanel, BorderLayout.CENTER);
         
         // Buttons panel
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton addButton = new JButton("Add User");
-        JButton editButton = new JButton("Edit User");
-        JButton toggleButton = new JButton("Toggle Active");
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        buttonsPanel.setOpaque(false);
+        
+        JButton addButton = ThemeManager.createPrimaryButton("Add User");
+        JButton editButton = ThemeManager.createSecondaryButton("Edit User");
+        JButton toggleButton = ThemeManager.createDangerButton("Toggle Active");
         
         addButton.addActionListener(e -> handleAddUser());
         editButton.addActionListener(e -> handleEditUser());
@@ -191,9 +355,21 @@ public class AdminDashboard extends JPanel {
         buttonsPanel.add(addButton);
         buttonsPanel.add(editButton);
         buttonsPanel.add(toggleButton);
-        panel.add(buttonsPanel, BorderLayout.SOUTH);
         
-        return panel;
+        usersPanel.add(buttonsPanel, BorderLayout.SOUTH);
+        
+        // Add to content panel
+        addContentPanel(usersPanel, "users");
+        
+        // Add search functionality
+        searchButton.addActionListener(e -> {
+            String searchText = searchField.getText().toLowerCase();
+            if (searchText.isEmpty()) {
+                sorter.setRowFilter(null);
+            } else {
+                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
+            }
+        });
     }
     
     private void setupRefreshTimer() {
@@ -202,19 +378,25 @@ public class AdminDashboard extends JPanel {
     }
     
     private void refreshData() {
+        MainFrame.getInstance().setStatus("Refreshing data...");
+        MainFrame.getInstance().showProgress(true);
+        
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() {
                 updateReservationsTable();
                 updateRoomsTable();
                 updateUsersTable();
+                updateDashboardStats();
                 return null;
             }
             
             @Override
             protected void done() {
-                statusLabel.setText("Last updated: " + 
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+                LocalDateTime now = LocalDateTime.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+                MainFrame.getInstance().setStatus("Last updated: " + now.format(formatter));
+                MainFrame.getInstance().showProgress(false);
             }
         };
         worker.execute();
@@ -222,11 +404,13 @@ public class AdminDashboard extends JPanel {
     
     private void updateReservationsTable() {
         List<Reservation> reservations = reservationController.getAllReservations();
+        System.out.println("AdminDashboard: Found " + reservations.size() + " reservations");
         reservationsModel.setRowCount(0);
+        
         for (Reservation reservation : reservations) {
             reservationsModel.addRow(new Object[]{
                 reservation.getId(),
-                reservation.getUsername(),
+                reservation.getUserName(),
                 reservation.getRoomName(),
                 reservation.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
                 reservation.getEndTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
@@ -237,8 +421,9 @@ public class AdminDashboard extends JPanel {
     }
     
     private void updateRoomsTable() {
-        roomsModel.setRowCount(0);
         List<Room> rooms = roomController.getAllRooms();
+        roomsModel.setRowCount(0);
+        
         for (Room room : rooms) {
             roomsModel.addRow(new Object[]{
                 room.getId(),
@@ -247,7 +432,7 @@ public class AdminDashboard extends JPanel {
                 room.getLocation(),
                 room.getCapacity(),
                 room.getDescription(),
-                room.isActive()
+                room.isActive() ? "Yes" : "No"
             });
         }
     }
@@ -255,6 +440,7 @@ public class AdminDashboard extends JPanel {
     private void updateUsersTable() {
         List<User> users = authController.getAllUsers();
         usersModel.setRowCount(0);
+        
         for (User user : users) {
             usersModel.addRow(new Object[]{
                 user.getId(),
@@ -267,18 +453,32 @@ public class AdminDashboard extends JPanel {
         }
     }
     
+    private void updateDashboardStats() {
+        // Update stats cards
+        int totalRooms = roomController.getAllRooms().size();
+        totalRoomsCard.setValue(String.valueOf(totalRooms));
+        
+        int activeReservations = reservationController.getActiveReservations().size();
+        activeReservationsCard.setValue(String.valueOf(activeReservations));
+        
+        int totalUsers = authController.getAllUsers().size();
+        totalUsersCard.setValue(String.valueOf(totalUsers));
+    }
+    
     private void handleViewReservation() {
         int selectedRow = reservationsTable.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this,
                 "Please select a reservation to view",
                 "No Selection",
-                JOptionPane.WARNING_MESSAGE);
+                JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         
-        int reservationId = (int) reservationsTable.getValueAt(selectedRow, 0);
-        Reservation reservation = reservationController.getReservation(reservationId);
+        int reservationId = (int) reservationsTable.getValueAt(
+            reservationsTable.convertRowIndexToModel(selectedRow), 0);
+        
+        Reservation reservation = reservationController.getReservationById(reservationId);
         if (reservation != null) {
             showReservationDetails(reservation);
         }
@@ -290,29 +490,45 @@ public class AdminDashboard extends JPanel {
             JOptionPane.showMessageDialog(this,
                 "Please select a reservation to cancel",
                 "No Selection",
-                JOptionPane.WARNING_MESSAGE);
+                JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         
-        int reservationId = (int) reservationsTable.getValueAt(selectedRow, 0);
+        int reservationId = (int) reservationsTable.getValueAt(
+            reservationsTable.convertRowIndexToModel(selectedRow), 0);
+        
         int confirm = JOptionPane.showConfirmDialog(this,
             "Are you sure you want to cancel this reservation?",
             "Confirm Cancellation",
-            JOptionPane.YES_NO_OPTION);
-            
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+        
         if (confirm == JOptionPane.YES_OPTION) {
+            MainFrame.getInstance().showProgress(true);
+            MainFrame.getInstance().setStatus("Cancelling reservation...");
+            
             try {
-                reservationController.cancelReservation(reservationId);
-                refreshData();
-                JOptionPane.showMessageDialog(this,
-                    "Reservation cancelled successfully",
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE);
+                boolean success = reservationController.cancelReservation(reservationId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this,
+                        "Reservation cancelled successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                        "Failed to cancel reservation",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this,
-                    "Error cancelling reservation: " + e.getMessage(),
+                    "Error: " + e.getMessage(),
                     "Error",
                     JOptionPane.ERROR_MESSAGE);
+            } finally {
+                MainFrame.getInstance().showProgress(false);
+                MainFrame.getInstance().setStatus("Ready");
             }
         }
     }
@@ -327,131 +543,17 @@ public class AdminDashboard extends JPanel {
             JOptionPane.showMessageDialog(this,
                 "Please select a room to edit",
                 "No Selection",
-                JOptionPane.WARNING_MESSAGE);
+                JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         
-        int roomId = (Integer) roomsModel.getValueAt(selectedRow, 0);
-        Room room = roomController.getRoom(roomId);
-        if (room == null) {
-            JOptionPane.showMessageDialog(this,
-                "Failed to load room details",
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
-            return;
+        int roomId = (int) roomsTable.getValueAt(
+            roomsTable.convertRowIndexToModel(selectedRow), 0);
+        
+        Room room = roomController.getRoomById(roomId);
+        if (room != null) {
+            editRoomDialog(room);
         }
-        
-        editRoomDialog(room);
-    }
-    
-    private void editRoomDialog(Room room) {
-        Window window = SwingUtilities.getWindowAncestor(this);
-        JDialog dialog;
-        if (window instanceof Frame) {
-            dialog = new JDialog((Frame) window, "Edit Room", true);
-        } else if (window instanceof Dialog) {
-            dialog = new JDialog((Dialog) window, "Edit Room", true);
-        } else {
-            dialog = new JDialog((Frame) null, "Edit Room", true);
-        }
-        
-        dialog.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        
-        JTextField nameField = new JTextField(room.getName(), 20);
-        JSpinner capacitySpinner = new JSpinner(new SpinnerNumberModel(room.getCapacity(), 1, 100, 1));
-        JTextField typeField = new JTextField(room.getType(), 20);
-        JTextField locationField = new JTextField(room.getLocation(), 20);
-        JTextArea descriptionArea = new JTextArea(room.getDescription(), 3, 20);
-        descriptionArea.setLineWrap(true);
-        descriptionArea.setWrapStyleWord(true);
-        JCheckBox activeCheckbox = new JCheckBox("Active", room.isActive());
-        
-        gbc.gridx = 0; gbc.gridy = 0;
-        dialog.add(new JLabel("Name:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(nameField, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 1;
-        dialog.add(new JLabel("Capacity:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(capacitySpinner, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 2;
-        dialog.add(new JLabel("Type:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(typeField, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 3;
-        dialog.add(new JLabel("Location:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(locationField, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 4;
-        dialog.add(new JLabel("Description:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(new JScrollPane(descriptionArea), gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 5;
-        dialog.add(new JLabel("Status:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(activeCheckbox, gbc);
-        
-        JPanel buttonPanel = new JPanel();
-        JButton saveButton = new JButton("Save");
-        saveButton.addActionListener(e -> {
-            String name = nameField.getText().trim();
-            int capacity = (Integer) capacitySpinner.getValue();
-            String type = typeField.getText().trim();
-            String location = locationField.getText().trim();
-            String description = descriptionArea.getText().trim();
-            boolean active = activeCheckbox.isSelected();
-            
-            if (name.isEmpty() || type.isEmpty() || location.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog,
-                    "Please fill in all required fields",
-                    "Validation Error",
-                    JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            
-            room.setName(name);
-            room.setCapacity(capacity);
-            room.setType(type);
-            room.setLocation(location);
-            room.setDescription(description);
-            room.setActive(active);
-            
-            if (roomController.updateRoom(room)) {
-                dialog.dispose();
-                updateRoomsTable();
-                JOptionPane.showMessageDialog(this,
-                    "Room updated successfully",
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(dialog,
-                    "Failed to update room",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        
-        JButton cancelButton = new JButton("Cancel");
-        cancelButton.addActionListener(e -> dialog.dispose());
-        
-        buttonPanel.add(saveButton);
-        buttonPanel.add(cancelButton);
-        
-        gbc.gridx = 0; gbc.gridy = 6;
-        gbc.gridwidth = 2;
-        dialog.add(buttonPanel, gbc);
-        
-        dialog.pack();
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
     }
     
     private void handleDeleteRoom() {
@@ -460,205 +562,382 @@ public class AdminDashboard extends JPanel {
             JOptionPane.showMessageDialog(this,
                 "Please select a room to delete",
                 "No Selection",
-                JOptionPane.WARNING_MESSAGE);
+                JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         
-        int roomId = (Integer) roomsModel.getValueAt(selectedRow, 0);
-        String roomName = (String) roomsModel.getValueAt(selectedRow, 1);
+        int roomId = (int) roomsTable.getValueAt(
+            roomsTable.convertRowIndexToModel(selectedRow), 0);
         
         int confirm = JOptionPane.showConfirmDialog(this,
-            "Are you sure you want to delete room '" + roomName + "'?\n" +
-            "This will also delete all reservations for this room.",
+            "Are you sure you want to delete this room?\nThis will also delete all associated reservations.",
             "Confirm Deletion",
             JOptionPane.YES_NO_OPTION,
             JOptionPane.WARNING_MESSAGE);
-            
+        
         if (confirm == JOptionPane.YES_OPTION) {
-            if (roomController.deleteRoom(roomId)) {
-                updateRoomsTable();
+            MainFrame.getInstance().showProgress(true);
+            MainFrame.getInstance().setStatus("Deleting room...");
+            
+            try {
+                boolean success = roomController.deleteRoom(roomId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this,
+                        "Room deleted successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                        "Failed to delete room",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
                 JOptionPane.showMessageDialog(this,
-                    "Room deleted successfully",
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                    "Failed to delete room. It may be in use by active reservations.",
+                    "Error: " + e.getMessage(),
                     "Error",
                     JOptionPane.ERROR_MESSAGE);
+            } finally {
+                MainFrame.getInstance().showProgress(false);
+                MainFrame.getInstance().setStatus("Ready");
             }
         }
     }
     
     private void handleAddUser() {
-        // TODO: Implement user addition dialog
-        JOptionPane.showMessageDialog(this, "Add user feature coming soon!");
-    }
-    
-    private void handleEditUser() {
-        // TODO: Implement user editing dialog
-        JOptionPane.showMessageDialog(this, "Edit user feature coming soon!");
-    }
-    
-    private void handleToggleUserActive() {
-        // TODO: Implement user activation toggle
-        JOptionPane.showMessageDialog(this, "Toggle user active feature coming soon!");
-    }
-    
-    private void handleLogout() {
-        refreshTimer.stop();
-        MainFrame.getInstance().showPanel("login", new LoginPanel());
-    }
-    
-    private void showReservationDetails(Reservation reservation) {
-        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
-        JDialog dialog = new JDialog(parentFrame, "Reservation Details", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.setSize(400, 300);
-        dialog.setLocationRelativeTo(this);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Add New User", true);
+        dialog.setLayout(new BorderLayout(10, 10));
         
-        JPanel contentPanel = new JPanel(new GridBagLayout());
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Form panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        
+        // Username
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        formPanel.add(new JLabel("Username:"), gbc);
         
-        // Add reservation details
-        contentPanel.add(new JLabel("ID: " + reservation.getId()), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("User: " + reservation.getUsername()), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("Room: " + reservation.getRoomName()), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("Start Time: " + 
-            reservation.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("End Time: " + 
-            reservation.getEndTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("Status: " + reservation.getStatus()), gbc);
-        gbc.gridy++;
-        contentPanel.add(new JLabel("Subject: " + reservation.getSubject()), gbc);
-        
-        dialog.add(contentPanel, BorderLayout.CENTER);
-        
-        JButton closeButton = new JButton("Close");
-        closeButton.addActionListener(e -> dialog.dispose());
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.add(closeButton);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-        
-        dialog.setVisible(true);
-    }
-    
-    private void createRoomDialog() {
-        Window window = SwingUtilities.getWindowAncestor(this);
-        JDialog dialog;
-        if (window instanceof Frame) {
-            dialog = new JDialog((Frame) window, "Create Room", true);
-        } else if (window instanceof Dialog) {
-            dialog = new JDialog((Dialog) window, "Create Room", true);
-        } else {
-            dialog = new JDialog((Frame) null, "Create Room", true);
-        }
-        
-        dialog.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        
-        JTextField nameField = new JTextField(20);
-        JSpinner capacitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 100, 1));
-        JTextField typeField = new JTextField(20);
-        JTextField locationField = new JTextField(20);
-        JTextArea descriptionArea = new JTextArea(3, 20);
-        descriptionArea.setLineWrap(true);
-        descriptionArea.setWrapStyleWord(true);
-        
-        gbc.gridx = 0; gbc.gridy = 0;
-        dialog.add(new JLabel("Name:"), gbc);
         gbc.gridx = 1;
-        dialog.add(nameField, gbc);
+        gbc.weightx = 1.0;
+        JTextField usernameField = new JTextField(20);
+        formPanel.add(usernameField, gbc);
         
-        gbc.gridx = 0; gbc.gridy = 1;
-        dialog.add(new JLabel("Capacity:"), gbc);
+        // Full Name
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0.0;
+        formPanel.add(new JLabel("Full Name:"), gbc);
+        
         gbc.gridx = 1;
-        dialog.add(capacitySpinner, gbc);
+        gbc.weightx = 1.0;
+        JTextField fullNameField = new JTextField(20);
+        formPanel.add(fullNameField, gbc);
         
-        gbc.gridx = 0; gbc.gridy = 2;
-        dialog.add(new JLabel("Type:"), gbc);
+        // Email
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0.0;
+        formPanel.add(new JLabel("Email:"), gbc);
+        
         gbc.gridx = 1;
-        dialog.add(typeField, gbc);
+        gbc.weightx = 1.0;
+        JTextField emailField = new JTextField(20);
+        formPanel.add(emailField, gbc);
         
-        gbc.gridx = 0; gbc.gridy = 3;
-        dialog.add(new JLabel("Location:"), gbc);
+        // Password
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.weightx = 0.0;
+        formPanel.add(new JLabel("Password:"), gbc);
+        
         gbc.gridx = 1;
-        dialog.add(locationField, gbc);
+        gbc.weightx = 1.0;
+        JPasswordField passwordField = new JPasswordField(20);
+        formPanel.add(passwordField, gbc);
         
-        gbc.gridx = 0; gbc.gridy = 4;
-        dialog.add(new JLabel("Description:"), gbc);
-        gbc.gridx = 1;
-        dialog.add(new JScrollPane(descriptionArea), gbc);
+        // Admin checkbox
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.gridwidth = 2;
+        JCheckBox adminCheckBox = new JCheckBox("Administrator");
+        formPanel.add(adminCheckBox, gbc);
         
-        JPanel buttonPanel = new JPanel();
-        JButton createButton = new JButton("Create");
-        createButton.addActionListener(e -> {
-            String name = nameField.getText().trim();
-            int capacity = (Integer) capacitySpinner.getValue();
-            String type = typeField.getText().trim();
-            String location = locationField.getText().trim();
-            String description = descriptionArea.getText().trim();
+        dialog.add(formPanel, BorderLayout.CENTER);
+        
+        // Buttons panel
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton saveButton = ThemeManager.createPrimaryButton("Create User");
+        JButton cancelButton = ThemeManager.createSecondaryButton("Cancel");
+        
+        saveButton.addActionListener(e -> {
+            // Validate input
+            String username = usernameField.getText().trim();
+            String fullName = fullNameField.getText().trim();
+            String email = emailField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            boolean isAdmin = adminCheckBox.isSelected();
             
-            if (name.isEmpty() || type.isEmpty() || location.isEmpty()) {
+            if (username.isEmpty() || fullName.isEmpty() || email.isEmpty() || password.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog,
-                    "Please fill in all required fields",
+                    "All fields are required",
                     "Validation Error",
                     JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
-            if (roomController.createRoom(name, capacity, type, location, description)) {
-                dialog.dispose();
-                updateRoomsTable();
-            } else {
+            try {
+                // Create user with admin status if checkbox is selected
+                boolean success;
+                if (isAdmin) {
+                    User newUser = new User();
+                    newUser.setUsername(username);
+                    newUser.setFullName(fullName);
+                    newUser.setEmail(email);
+                    newUser.setAdmin(true);
+                    newUser.setActive(true);
+                    success = authController.register(username, password, true);
+                } else {
+                    success = authController.registerUser(username, fullName, email, password);
+                }
+                
+                if (success) {
+                    JOptionPane.showMessageDialog(dialog,
+                        "User created successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(dialog,
+                        "Failed to create user. Username may already exist.",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog,
-                    "Failed to create room",
+                    "Error creating user: " + ex.getMessage(),
                     "Error",
                     JOptionPane.ERROR_MESSAGE);
             }
         });
         
-        JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(e -> dialog.dispose());
         
-        buttonPanel.add(createButton);
-        buttonPanel.add(cancelButton);
-        
-        gbc.gridx = 0; gbc.gridy = 5;
-        gbc.gridwidth = 2;
-        dialog.add(buttonPanel, gbc);
+        buttonsPanel.add(saveButton);
+        buttonsPanel.add(cancelButton);
+        dialog.add(buttonsPanel, BorderLayout.SOUTH);
         
         dialog.pack();
         dialog.setLocationRelativeTo(this);
+        dialog.setMinimumSize(new Dimension(400, 300));
         dialog.setVisible(true);
     }
     
-    private void toggleRoomAvailability(int row) {
-        int roomId = (Integer) roomsModel.getValueAt(row, 0);
-        boolean currentStatus = (Boolean) roomsModel.getValueAt(row, 6);
-        if (roomController.updateRoomAvailability(roomId, !currentStatus)) {
-            updateRoomsTable();
-        } else {
+    private void handleEditUser() {
+        int selectedRow = usersTable.getSelectedRow();
+        if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this,
-                "Failed to update room availability",
+                "Please select a user to edit",
+                "No Selection",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        int userId = (int) usersTable.getValueAt(
+            usersTable.convertRowIndexToModel(selectedRow), 0);
+        
+        User user = authController.getUser(userId);
+        if (user == null) {
+            JOptionPane.showMessageDialog(this,
+                "User not found",
                 "Error",
                 JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Edit User", true);
+        dialog.setLayout(new BorderLayout(10, 10));
+        
+        // Form panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        
+        // Username (read-only)
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.WEST;
+        formPanel.add(new JLabel("Username:"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        JTextField usernameField = new JTextField(user.getUsername(), 20);
+        usernameField.setEditable(false);
+        formPanel.add(usernameField, gbc);
+        
+        // Admin checkbox
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 2;
+        JCheckBox adminCheckBox = new JCheckBox("Administrator");
+        adminCheckBox.setSelected(user.isAdmin());
+        formPanel.add(adminCheckBox, gbc);
+        
+        // Active checkbox
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        JCheckBox activeCheckBox = new JCheckBox("Active");
+        activeCheckBox.setSelected(user.isActive());
+        formPanel.add(activeCheckBox, gbc);
+        
+        dialog.add(formPanel, BorderLayout.CENTER);
+        
+        // Buttons panel
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton saveButton = ThemeManager.createPrimaryButton("Save Changes");
+        JButton cancelButton = ThemeManager.createSecondaryButton("Cancel");
+        
+        saveButton.addActionListener(e -> {
+            boolean isAdmin = adminCheckBox.isSelected();
+            boolean isActive = activeCheckBox.isSelected();
+            
+            try {
+                boolean success = authController.updateUser(userId, isAdmin, isActive);
+                if (success) {
+                    JOptionPane.showMessageDialog(dialog,
+                        "User updated successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(dialog,
+                        "Failed to update user",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog,
+                    "Error updating user: " + ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        cancelButton.addActionListener(e -> dialog.dispose());
+        
+        buttonsPanel.add(saveButton);
+        buttonsPanel.add(cancelButton);
+        dialog.add(buttonsPanel, BorderLayout.SOUTH);
+        
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setMinimumSize(new Dimension(400, 200));
+        dialog.setVisible(true);
+    }
+    
+    private void handleToggleUserActive() {
+        int selectedRow = usersTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a user to toggle active status",
+                "No Selection",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        int userId = (int) usersTable.getValueAt(
+            usersTable.convertRowIndexToModel(selectedRow), 0);
+        String username = (String) usersTable.getValueAt(
+            usersTable.convertRowIndexToModel(selectedRow), 1);
+        boolean isCurrentlyActive = "Yes".equals(usersTable.getValueAt(
+            usersTable.convertRowIndexToModel(selectedRow), 5));
+        
+        // Don't allow deactivating your own account
+        if (userId == getCurrentUser().getId()) {
+            JOptionPane.showMessageDialog(this,
+                "You cannot deactivate your own account",
+                "Operation Not Allowed",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        String action = isCurrentlyActive ? "deactivate" : "activate";
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to " + action + " user '" + username + "'?",
+            "Confirm " + (isCurrentlyActive ? "Deactivation" : "Activation"),
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            User user = authController.getUser(userId);
+            if (user != null) {
+                try {
+                    boolean success = authController.updateUser(userId, user.isAdmin(), !isCurrentlyActive);
+                    if (success) {
+                        JOptionPane.showMessageDialog(this,
+                            "User " + (isCurrentlyActive ? "deactivated" : "activated") + " successfully",
+                            "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+                        refreshData();
+                    } else {
+                        JOptionPane.showMessageDialog(this,
+                            "Failed to " + action + " user",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this,
+                        "Error: " + ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            }
         }
     }
     
+    private void showReservationDetails(Reservation reservation) {
+        ReservationDetailsDialog dialog = new ReservationDetailsDialog(
+            (Frame) SwingUtilities.getWindowAncestor(this), 
+            reservation
+        );
+        dialog.setVisible(true);
+    }
+    
+    private void createRoomDialog() {
+        RoomDialog dialog = new RoomDialog(
+            (Frame) SwingUtilities.getWindowAncestor(this)
+        );
+        dialog.setVisible(true);
+        
+        if (dialog.isRoomSaved()) {
+            refreshData();
+        }
+    }
+    
+    private void editRoomDialog(Room room) {
+        RoomDialog dialog = new RoomDialog(
+            (Frame) SwingUtilities.getWindowAncestor(this),
+            room
+        );
+        dialog.setVisible(true);
+        
+        if (dialog.isRoomSaved()) {
+            refreshData();
+        }
+    }
+    
+    @Override
     public void cleanup() {
+        super.cleanup();
         if (refreshTimer != null) {
             refreshTimer.stop();
         }

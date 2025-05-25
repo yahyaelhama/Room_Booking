@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controller for handling reservation operations
@@ -222,5 +223,47 @@ public class ReservationController {
     
     public int countTotalReservations(LocalDateTime start, LocalDateTime end) {
         return getReservationsInRange(start, end).size();
+    }
+    
+    /**
+     * Gets a reservation by ID
+     * @param reservationId the reservation ID
+     * @return the reservation or null if not found
+     */
+    public Reservation getReservationById(int reservationId) {
+        return reservationDAO.getReservation(reservationId);
+    }
+    
+    /**
+     * Gets all active reservations (not cancelled or completed)
+     * @return List of active reservations
+     */
+    public List<Reservation> getActiveReservations() {
+        return getAllReservations().stream()
+            .filter(r -> !"CANCELLED".equals(r.getStatus()) && !"COMPLETED".equals(r.getStatus()))
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Gets active reservations for a specific user
+     * @param userId the user ID
+     * @return List of active reservations for the user
+     */
+    public List<Reservation> getActiveUserReservations(int userId) {
+        return getUserReservations(userId).stream()
+            .filter(r -> !"CANCELLED".equals(r.getStatus()) && !"COMPLETED".equals(r.getStatus()))
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Gets upcoming reservations for a specific user (future start time)
+     * @param userId the user ID
+     * @return List of upcoming reservations for the user
+     */
+    public List<Reservation> getUpcomingUserReservations(int userId) {
+        LocalDateTime now = LocalDateTime.now();
+        return getUserReservations(userId).stream()
+            .filter(r -> r.getStartTime().isAfter(now) && !"CANCELLED".equals(r.getStatus()))
+            .collect(Collectors.toList());
     }
 } 

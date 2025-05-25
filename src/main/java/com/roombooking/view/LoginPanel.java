@@ -2,6 +2,7 @@ package com.roombooking.view;
 
 import com.roombooking.controller.AuthController;
 import com.roombooking.model.User;
+import com.roombooking.util.ThemeManager;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -17,90 +18,95 @@ public class LoginPanel extends JPanel {
         
         // Set panel properties
         setLayout(new GridBagLayout());
-        setBackground(Color.WHITE);
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
-
-        // Title
-        JLabel titleLabel = new JLabel("Système de Réservation");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        gbc.insets = new Insets(0, 0, 20, 0);
-        add(titleLabel, gbc);
-
-        // Reset insets for other components
-        gbc.insets = new Insets(5, 5, 5, 5);
-
-        // Username
-        JLabel usernameLabel = new JLabel("Username:");
-        usernameLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.WEST;
-        add(usernameLabel, gbc);
-
+        setBackground(ThemeManager.BACKGROUND_COLOR);
+        
+        // Create the login card
+        JPanel loginCard = ThemeManager.createCardPanel();
+        loginCard.setLayout(new BorderLayout(0, 20));
+        loginCard.setMaximumSize(new Dimension(400, 450));
+        
+        // Create header panel with logo
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        
+        // Add logo if available
+        try {
+            ImageIcon logoIcon = new ImageIcon(getClass().getResource("/images/logo.png"));
+            JLabel logoLabel = new JLabel(logoIcon);
+            logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            headerPanel.add(logoLabel, BorderLayout.NORTH);
+        } catch (Exception e) {
+            // If no logo, just use text
+            JLabel titleLabel = new JLabel("Room Booking System");
+            titleLabel.setFont(ThemeManager.TITLE_FONT);
+            titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            headerPanel.add(titleLabel, BorderLayout.NORTH);
+        }
+        
+        // Add welcome text
+        JLabel welcomeLabel = new JLabel("Welcome! Please sign in");
+        welcomeLabel.setFont(ThemeManager.SUBHEADING_FONT);
+        welcomeLabel.setForeground(ThemeManager.TEXT_SECONDARY);
+        welcomeLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        headerPanel.add(welcomeLabel, BorderLayout.SOUTH);
+        
+        loginCard.add(headerPanel, BorderLayout.NORTH);
+        
+        // Create form panel
+        JPanel formPanel = new JPanel();
+        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+        formPanel.setOpaque(false);
+        formPanel.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 20));
+        
+        // Username field
         usernameField = new JTextField(20);
-        usernameField.setPreferredSize(new Dimension(200, 30));
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        add(usernameField, gbc);
-
-        // Password
-        JLabel passwordLabel = new JLabel("Password:");
-        passwordLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        add(passwordLabel, gbc);
-
+        usernameField.setPreferredSize(new Dimension(0, 35));
+        JPanel usernamePanel = ThemeManager.createFormField("Username", usernameField);
+        usernamePanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        formPanel.add(usernamePanel);
+        
+        // Password field
         passwordField = new JPasswordField(20);
-        passwordField.setPreferredSize(new Dimension(200, 30));
-        gbc.gridx = 1;
-        gbc.gridy = 2;
-        add(passwordField, gbc);
-
-        // Buttons Panel
-        JPanel buttonsPanel = new JPanel(new GridLayout(2, 1, 0, 10));
-        buttonsPanel.setOpaque(false);
-        buttonsPanel.setBorder(BorderFactory.createEmptyBorder(15, 0, 0, 0));
-
+        passwordField.setPreferredSize(new Dimension(0, 35));
+        JPanel passwordPanel = ThemeManager.createFormField("Password", passwordField);
+        passwordPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 25, 0));
+        formPanel.add(passwordPanel);
+        
         // Login button
-        loginButton = new JButton("Login");
-        loginButton.setFont(new Font("Arial", Font.BOLD, 14));
-        loginButton.setBackground(new Color(0, 120, 215));
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFocusPainted(false);
-        loginButton.setPreferredSize(new Dimension(200, 35));
-        buttonsPanel.add(loginButton);
-
+        loginButton = ThemeManager.createPrimaryButton("Sign In");
+        loginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        loginButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        formPanel.add(loginButton);
+        
+        // Add spacing
+        formPanel.add(Box.createRigidArea(new Dimension(0, 15)));
+        
         // Register button
-        JButton registerButton = new JButton("Register New Account");
-        registerButton.setFont(new Font("Arial", Font.PLAIN, 14));
-        registerButton.setBackground(new Color(240, 240, 240));
-        registerButton.setForeground(new Color(0, 120, 215));
-        registerButton.setFocusPainted(false);
-        registerButton.setPreferredSize(new Dimension(200, 35));
-        buttonsPanel.add(registerButton);
-
-        // Add buttons panel
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(10, 5, 5, 5);
-        add(buttonsPanel, gbc);
-
+        JButton registerButton = ThemeManager.createSecondaryButton("Create New Account");
+        registerButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        registerButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        formPanel.add(registerButton);
+        
+        loginCard.add(formPanel, BorderLayout.CENTER);
+        
+        // Footer with version info
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        footerPanel.setOpaque(false);
+        JLabel versionLabel = new JLabel("Version 1.0");
+        versionLabel.setFont(ThemeManager.SMALL_FONT);
+        versionLabel.setForeground(ThemeManager.TEXT_SECONDARY);
+        footerPanel.add(versionLabel);
+        
+        loginCard.add(footerPanel, BorderLayout.SOUTH);
+        
+        // Add the card to the main panel
+        add(loginCard);
+        
         // Add action listeners
         loginButton.addActionListener(this::handleLogin);
         registerButton.addActionListener(e -> handleRegister());
-
+        
         // Add key listener for Enter key
         InputMap inputMap = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap actionMap = getActionMap();
@@ -127,6 +133,8 @@ public class LoginPanel extends JPanel {
 
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
         loginButton.setEnabled(false);
+        MainFrame.getInstance().showProgress(true);
+        MainFrame.getInstance().setStatus("Logging in...");
 
         try {
             User user = authController.login(username, password);
@@ -144,21 +152,25 @@ public class LoginPanel extends JPanel {
                 } else {
                     MainFrame.getInstance().showPanel("user", new UserDashboard(user));
                 }
+                MainFrame.getInstance().setStatus("Logged in as " + user.getUsername());
             } else {
                 JOptionPane.showMessageDialog(this,
                     "Invalid username or password",
                     "Login Error",
                     JOptionPane.ERROR_MESSAGE);
+                MainFrame.getInstance().setStatus("Login failed");
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
                 "An error occurred during login: " + ex.getMessage(),
                 "Login Error",
                 JOptionPane.ERROR_MESSAGE);
+            MainFrame.getInstance().setStatus("Error: " + ex.getMessage());
         } finally {
             setCursor(Cursor.getDefaultCursor());
             loginButton.setEnabled(true);
             passwordField.setText("");
+            MainFrame.getInstance().showProgress(false);
         }
     }
 
@@ -170,6 +182,7 @@ public class LoginPanel extends JPanel {
         if (dialog.isRegistrationSuccessful()) {
             usernameField.setText(dialog.getRegisteredUsername());
             passwordField.requestFocus();
+            MainFrame.getInstance().setStatus("Registration successful. Please sign in.");
         }
     }
 } 

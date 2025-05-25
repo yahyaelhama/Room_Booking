@@ -11,7 +11,6 @@ import java.util.List;
 public class Reservation {
     private int id;
     private int userId;
-    private String username;
     private String userName;
     private int roomId;
     private String roomName;
@@ -53,20 +52,22 @@ public class Reservation {
         this.userId = userId;
     }
     
-    public String getUsername() {
-        return username;
-    }
-    
-    public void setUsername(String username) {
-        this.username = username;
-    }
-    
     public String getUserName() {
         return userName;
     }
     
     public void setUserName(String userName) {
         this.userName = userName;
+    }
+    
+    // Alias for backward compatibility
+    public String getUsername() {
+        return userName;
+    }
+    
+    // Alias for backward compatibility
+    public void setUsername(String username) {
+        this.userName = username;
     }
     
     public int getRoomId() {

@@ -347,7 +347,7 @@ public class ReservationDAO {
         reservation.setEndTime(rs.getTimestamp("end_time").toLocalDateTime());
         reservation.setStatus(rs.getString("status"));
         reservation.setSubject(rs.getString("subject"));
-        reservation.setUsername(rs.getString("username"));
+        reservation.setUserName(rs.getString("username"));
         reservation.setRoomName(rs.getString("room_name"));
         return reservation;
     }

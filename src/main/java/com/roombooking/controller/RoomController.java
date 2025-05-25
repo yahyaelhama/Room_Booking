@@ -65,6 +65,16 @@ public class RoomController {
     }
     
     /**
+     * Gets a room by ID (alias for getRoom)
+     * @param id the room ID
+     * @return Room object if found, null otherwise
+     */
+    public Room getRoomById(int id) {
+        logger.debug("Getting room by ID: {}", id);
+        return getRoom(id);
+    }
+    
+    /**
      * Updates a room's availability
      * @param id the room ID
      * @param active whether the room is active
