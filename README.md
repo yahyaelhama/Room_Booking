@@ -2,28 +2,43 @@
 
 A Java Swing application for managing room reservations in an organization.
 
+## Overview
+
+This application provides a comprehensive solution for room booking management with separate interfaces for administrators and regular users.
+
 ## Features
 
-- User authentication (admin and regular users)
-- Room management (create, edit, delete rooms)
-- Reservation management (create, cancel reservations)
-- Calendar view for room availability
-- Email notifications for reservation confirmations and cancellations
-- Admin dashboard for system management
-- User dashboard for making and managing reservations
+- **User Management**
+  - User authentication (admin and regular users)
+  - User registration and profile management
+
+- **Room Management**
+  - Create, edit, and delete rooms
+  - View room details and availability
+
+- **Reservation System**
+  - Create and cancel reservations
+  - Calendar view for room availability
+  - Email notifications for confirmations and cancellations
+
+- **Admin Features**
+  - Admin dashboard for system management
+  - Reservation approval workflow
+  - User management
 
 ## Technologies
 
-- Java 17
-- Swing for GUI
-- MySQL for database
-- Maven for dependency management
-- JBCrypt for password hashing
-- JavaMail for email notifications
-- SLF4J and Logback for logging
-- JFreeChart for reporting
+- **Backend**: Java 17
+- **Frontend**: Java Swing
+- **Database**: MySQL
+- **Dependencies**: 
+  - Maven for dependency management
+  - JBCrypt for password hashing
+  - JavaMail for email notifications
+  - SLF4J and Logback for logging
+  - JFreeChart for reporting
 
-## Setup Instructions
+## Getting Started
 
 ### Prerequisites
 
@@ -31,29 +46,48 @@ A Java Swing application for managing room reservations in an organization.
 - MySQL Server
 - Maven
 
-### Database Setup
+### Installation
 
-1. Install MySQL Server
-2. Run the setup script: `setup_database.bat` (Windows) or `setup_database.sh` (Linux/Mac)
-3. The default admin credentials are:
-   - Username: admin
-   - Password: admin123
-
-### Configuration
-
-1. Update database connection settings in `src/main/resources/database.properties`
-2. Update email settings in `src/main/java/com/roombooking/util/EmailService.java`
+1. Clone the repository
+2. Install MySQL Server
+3. Run the setup script: 
+   ```
+   setup_database.bat    # Windows
+   setup_database.sh     # Linux/Mac
+   ```
+4. Update configuration files:
+   - Database: `src/main/resources/database.properties`
+   - Email: `src/main/java/com/roombooking/util/EmailService.java`
 
 ### Building and Running
 
-1. Build the project: `mvn clean package`
-2. Run the application: `java -jar target/room-booking-app-1.0-SNAPSHOT.jar`
+```bash
+# Build the project
+mvn clean package
+
+# Run the application
+java -jar target/room-booking-app-1.0-SNAPSHOT.jar
+```
 
 ## Usage
 
-1. Log in with the default admin credentials or register a new user account
-2. Admin users can manage rooms, users, and approve/reject reservations
-3. Regular users can browse available rooms and make reservation requests
+### Initial Login
+
+Default admin credentials:
+- Username: admin
+- Password: yahya123
+
+### Basic Workflow
+
+1. **Administrators**:
+   - Manage rooms (add, edit, delete)
+   - Manage users
+   - Review and approve reservations
+
+2. **Regular Users**:
+   - Browse available rooms
+   - Make reservation requests
+   - View and cancel personal reservations
 
 ## License
 

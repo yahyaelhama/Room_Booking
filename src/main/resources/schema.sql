@@ -109,7 +109,7 @@ INSERT INTO profiles (first_name, last_name, email, phone, department) VALUES
 ('Jane', 'Smith', 'jane.smith@example.com', '0987654321', 'HR'),
 ('Admin', 'User', 'admin@example.com', '1122334455', 'Administration');
 
--- Insert sample users (password is 'password' hashed with BCrypt)
+-- Insert sample users (password is 'yahya123' hashed with BCrypt)
 INSERT INTO users (username, password_hash, email, role, profile_id) VALUES
 ('john', '$2a$10$Be/WwQvP4GDU6eki4b0tQ.B4hBROlgMlBduwloFtEfuV8.sPURLoC', 'john.doe@example.com', 'USER', 1),
 ('jane', '$2a$10$Be/WwQvP4GDU6eki4b0tQ.B4hBROlgMlBduwloFtEfuV8.sPURLoC', 'jane.smith@example.com', 'USER', 2),
