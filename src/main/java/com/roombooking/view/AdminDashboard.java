@@ -188,12 +188,18 @@ public class AdminDashboard extends DashboardPanel {
         buttonsPanel.setOpaque(false);
         
         JButton viewButton = ThemeManager.createPrimaryButton("View Details");
+        JButton approveButton = ThemeManager.createSuccessButton("Approve Reservation");
+        JButton rejectButton = ThemeManager.createSecondaryButton("Reject Reservation");
         JButton cancelButton = ThemeManager.createDangerButton("Cancel Reservation");
         
         viewButton.addActionListener(e -> handleViewReservation());
+        approveButton.addActionListener(e -> handleApproveReservation());
+        rejectButton.addActionListener(e -> handleRejectReservation());
         cancelButton.addActionListener(e -> handleCancelReservation());
         
         buttonsPanel.add(viewButton);
+        buttonsPanel.add(approveButton);
+        buttonsPanel.add(rejectButton);
         buttonsPanel.add(cancelButton);
         
         reservationsPanel.add(buttonsPanel, BorderLayout.SOUTH);
@@ -481,6 +487,122 @@ public class AdminDashboard extends DashboardPanel {
         Reservation reservation = reservationController.getReservationById(reservationId);
         if (reservation != null) {
             showReservationDetails(reservation);
+        }
+    }
+    
+    private void handleApproveReservation() {
+        int selectedRow = reservationsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a reservation to approve",
+                "No Selection",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        int reservationId = (int) reservationsTable.getValueAt(
+            reservationsTable.convertRowIndexToModel(selectedRow), 0);
+        String status = (String) reservationsTable.getValueAt(
+            reservationsTable.convertRowIndexToModel(selectedRow), 5);
+            
+        if (!"PENDING".equals(status)) {
+            JOptionPane.showMessageDialog(this,
+                "Only pending reservations can be approved",
+                "Invalid Status",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to approve this reservation?",
+            "Confirm Approval",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            // Show comment dialog
+            String comment = JOptionPane.showInputDialog(this,
+                "Add any comments (optional):",
+                "Approval Comments",
+                JOptionPane.PLAIN_MESSAGE);
+            
+            MainFrame.getInstance().showProgress(true);
+            MainFrame.getInstance().setStatus("Approving reservation...");
+            
+            try {
+                boolean success = reservationController.updateReservationStatus(
+                    reservationId, "APPROVED", comment);
+                if (success) {
+                    JOptionPane.showMessageDialog(this,
+                        "Reservation approved successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                        "Failed to approve reservation",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                    "Error: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            } finally {
+                MainFrame.getInstance().showProgress(false);
+                MainFrame.getInstance().setStatus("Ready");
+            }
+        }
+    }
+    
+    private void handleRejectReservation() {
+        int selectedRow = reservationsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a reservation to reject",
+                "No Selection",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        int reservationId = (int) reservationsTable.getValueAt(
+            reservationsTable.convertRowIndexToModel(selectedRow), 0);
+        
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to reject this reservation?",
+            "Confirm Rejection",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            MainFrame.getInstance().showProgress(true);
+            MainFrame.getInstance().setStatus("Rejecting reservation...");
+            
+            try {
+                boolean success = reservationController.updateReservationStatus(
+                    reservationId, "REJECTED", "Rejected by administrator");
+                if (success) {
+                    JOptionPane.showMessageDialog(this,
+                        "Reservation rejected successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    refreshData();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                        "Failed to reject reservation",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                    "Error: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            } finally {
+                MainFrame.getInstance().showProgress(false);
+                MainFrame.getInstance().setStatus("Ready");
+            }
         }
     }
     

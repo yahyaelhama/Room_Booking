@@ -112,6 +112,20 @@ public class ThemeManager {
     }
     
     /**
+     * Creates a styled success button
+     */
+    public static JButton createSuccessButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(BUTTON_FONT);
+        button.setBackground(SUCCESS_COLOR);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(true); // Enable content area filling
+        button.setOpaque(true);
+        return button;
+    }
+    
+    /**
      * Creates a styled card panel with shadow effect
      */
     public static JPanel createCardPanel() {

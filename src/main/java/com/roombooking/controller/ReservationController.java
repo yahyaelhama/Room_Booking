@@ -128,10 +128,10 @@ public class ReservationController {
             try {
                 switch (status) {
                     case "APPROVED":
-                        emailService.sendReservationConfirmation(reservation, room, user, new Participant[0]);
+                        emailService.sendReservationApproval(reservation, room, user, new Participant[0]);
                         break;
                     case "REJECTED":
-                        emailService.sendReservationConfirmation(reservation, room, user, new Participant[0]);
+                        emailService.sendReservationRejection(reservation, room, user, new Participant[0]);
                         break;
                     case "CANCELLED":
                         emailService.sendReservationCancellation(reservation, room, user, new Participant[0]);
